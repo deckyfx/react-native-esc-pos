@@ -150,6 +150,12 @@ public class EscPosModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
+    public void setFontType(int type, Promise promise) {
+        printerService.setFontType(type);
+        promise.resolve(true);
+    }
+
+    @ReactMethod
     public void printSample(Promise promise) {
         try {
             printerService.printSample();
@@ -161,6 +167,12 @@ public class EscPosModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void write(byte[] command, Promise promise) {
+        printerService.write(command);
+        promise.resolve(true);
+    }
+
+    @ReactMethod
+    public void write(String command, Promise promise) {
         printerService.write(command);
         promise.resolve(true);
     }

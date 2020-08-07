@@ -127,8 +127,17 @@ public class PrinterService {
         write(baos.toByteArray());
     }
 
+    public void setFontType(int type) {
+        basePrinterService.write( new byte[] { 0x1b, 't', (byte) type });
+        basePrinterService.write( new byte[] { 0x1b, 'M', (byte) type });
+    }
+
     public void write(byte[] command) {
         basePrinterService.write(command);
+    }
+
+    public void write(String command) {
+        basePrinterService.write(command.getBytes());
     }
 
     public void setCharCode(String code) {
@@ -193,9 +202,23 @@ public class PrinterService {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         String line;
 
+        // TODO: Shouldn't put it here
+        byte[] ESC_LT = new byte[] { 0x1b, 0x3c, 0x00 };
+        byte[] ESC_t = new byte[] { 0x1b, 't', 0x00 };
+        byte[] ESC_M = new byte[] { 0x1b, 'M', 0x00 };
+        byte[] FS_and = new byte[] { 0x1c, '&' };
+        byte[] TXT_NORMAL_NEW = new byte[] { 0x1d, '!', 0x00 };
+        byte[] TXT_4SQUARE_NEW = new byte[] { 0x1d, '!', 0x11 };
+        byte[] TXT_2HEIGHT_NEW = new byte[] { 0x1d, '!', 0x01 };
+        byte[] TXT_2WIDTH_NEW = new byte[] { 0x1d, '!', 0x10 };
+        byte[] LINE_SPACE_68 = new byte[] { 0x1b, 0x33, 68 };
+        byte[] LINE_SPACE_88 = new byte[] { 0x1b, 0x33, 120 };
+        byte[] DEFAULT_LINE_SPACE = new byte[] { 0x1b, 50 };
+
         while ((line = reader.readLine()) != null) {
             byte[] qtToWrite = null;
             byte[] imageToWrite = null;
+            byte[] fontType = null;
             if (line.matches(".*\\{QR\\[(.+)\\]\\}.*")) {
                 try {
                     qtToWrite = generateQRCodeByteArrayOutputStream(line.replaceAll(".*\\{QR\\[(.+)\\]\\}.*", "$1"),
@@ -213,6 +236,14 @@ public class PrinterService {
                 }
             }
 
+            if (line.matches(".*\\{FT\\:(\\d)\\}.*")) {
+                try {
+                    fontType = new byte[] { (byte) Integer.parseInt(line.replaceAll(".*\\{FT\\:(\\d)\\}.*", "$1")) };
+                } catch (Exception e) {
+                    throw new IOException(e);
+                }
+            }
+
             boolean bold = line.contains("{B}");
             boolean underline = line.contains("{U}");
             boolean h1 = line.contains("{H1}");
@@ -224,21 +255,15 @@ public class PrinterService {
             boolean rt = line.contains("{R}");
             int charsOnLine = layoutBuilder.getCharsOnLine();
 
-            // TODO: Shouldn't put it here
-            byte[] ESC_t = new byte[] { 0x1b, 't', 0x00 };
-            byte[] ESC_M = new byte[] { 0x1b, 'M', 0x00 };
-            byte[] FS_and = new byte[] { 0x1c, '&' };
-            byte[] TXT_NORMAL_NEW = new byte[] { 0x1d, '!', 0x00 };
-            byte[] TXT_4SQUARE_NEW = new byte[] { 0x1d, '!', 0x11 };
-            byte[] TXT_2HEIGHT_NEW = new byte[] { 0x1d, '!', 0x01 };
-            byte[] TXT_2WIDTH_NEW = new byte[] { 0x1d, '!', 0x10 };
-            byte[] LINE_SPACE_68 = new byte[] { 0x1b, 0x33, 68 };
-            byte[] LINE_SPACE_88 = new byte[] { 0x1b, 0x33, 120 };
-            byte[] DEFAULT_LINE_SPACE = new byte[] { 0x1b, 50 };
-
             baos.write(ESC_t);
             baos.write(FS_and);
             baos.write(ESC_M);
+
+            if (fontType != null) {
+                baos.write(new byte[] { 0x1b, 't', fontType[0] });
+                baos.write(new byte[] { 0x1b, 'M', fontType[0] });
+                line = line.replaceAll("\\{FT\\:(\\d)\\}", "");
+            }
 
             // Add tags
             if (bold) {
