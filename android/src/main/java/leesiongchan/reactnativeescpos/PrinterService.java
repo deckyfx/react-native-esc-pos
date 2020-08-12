@@ -213,12 +213,13 @@ public class PrinterService {
         byte[] TXT_2WIDTH_NEW = new byte[] { 0x1d, '!', 0x10 };
         byte[] LINE_SPACE_68 = new byte[] { 0x1b, 0x33, 68 };
         byte[] LINE_SPACE_88 = new byte[] { 0x1b, 0x33, 120 };
-        byte[] DEFAULT_LINE_SPACE = new byte[] { 0x1b, 50 };
+        byte[] DEFAULT_LINE_SPACE = new byte[] { 0x1b, 0x32 };
 
         while ((line = reader.readLine()) != null) {
             byte[] qtToWrite = null;
             byte[] imageToWrite = null;
             byte[] fontType = null;
+            byte[] lineSpacing = null;
             if (line.matches(".*\\{QR\\[(.+)\\]\\}.*")) {
                 try {
                     qtToWrite = generateQRCodeByteArrayOutputStream(line.replaceAll(".*\\{QR\\[(.+)\\]\\}.*", "$1"),
@@ -244,11 +245,20 @@ public class PrinterService {
                 }
             }
 
+            if (line.matches(".*\\{LS\\:(\\d{1,2})\\}.*")) {
+                try {
+                    lineSpacing = new byte[] { (byte) Integer.parseInt(line.replaceAll(".*\\{LS\\:(\\d{1,2})\\}.*", "$1")) };
+                } catch (Exception e) {
+                    throw new IOException(e);
+                }
+            }
+
             boolean bold = line.contains("{B}");
             boolean underline = line.contains("{U}");
             boolean h1 = line.contains("{H1}");
             boolean h2 = line.contains("{H2}");
             boolean h3 = line.contains("{H3}");
+            boolean lsn = line.contains("{LS:N}");
             boolean lsm = line.contains("{LS:M}");
             boolean lsl = line.contains("{LS:L}");
             boolean ct = line.contains("{C}");
@@ -276,16 +286,16 @@ public class PrinterService {
             }
             if (h1) {
                 baos.write(TXT_4SQUARE_NEW);
-                baos.write(LINE_SPACE_88);
+                //baos.write(LINE_SPACE_88);
                 line = line.replace("{H1}", "");
                 charsOnLine = charsOnLine / 2;
             } else if (h2) {
                 baos.write(TXT_2HEIGHT_NEW);
-                baos.write(LINE_SPACE_88);
+                //baos.write(LINE_SPACE_88);
                 line = line.replace("{H2}", "");
             } else if (h3) {
                 baos.write(TXT_2WIDTH_NEW);
-                baos.write(LINE_SPACE_68);
+                //baos.write(LINE_SPACE_68);
                 line = line.replace("{H3}", "");
                 charsOnLine = charsOnLine / 2;
             }
@@ -295,6 +305,9 @@ public class PrinterService {
             } else if (lsl) {
                 baos.write(LINE_SPACE_30);
                 line = line.replace("{LS:L}", "");
+            } else if (lsn) {
+                baos.write(DEFAULT_LINE_SPACE);
+                line = line.replace("{LS:N}", "");
             }
             if (ct) {
                 baos.write(TXT_ALIGN_CT);
@@ -303,6 +316,11 @@ public class PrinterService {
             if (rt) {
                 baos.write(TXT_ALIGN_RT);
                 line = line.replace("{R}", "");
+            }
+
+            if (lineSpacing != null) {
+                baos.write(new byte[] { 0x1b, 0x33, lineSpacing[0] });
+                line = line.replaceAll("\\{LS\\:(\\d{1,2})\\}", "");
             }
 
             try {
